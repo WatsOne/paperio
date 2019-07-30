@@ -11,4 +11,8 @@ class World(val xCells: Int, val yCells: Int, val width: Int, val speed: Int) {
             )
         }
     }
+
+    override fun toString(): String {
+        return "World(xCells=$xCells, yCells=$yCells, width=$width, speed=$speed)"
+    }
 }

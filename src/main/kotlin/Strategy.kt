@@ -1,18 +1,17 @@
-//import mu.KotlinLogging
+import mu.KotlinLogging
 import org.json.JSONObject
 import java.lang.RuntimeException
 
-//private val logger = KotlinLogging.logger {}
+private val logger = KotlinLogging.logger {}
 class Strategy {
     fun run() {
 
         val world = World.init(JSONObject(readLine()).getJSONObject("params"))
-        //logger.debug { "$world" }
+        logger.debug { "$world" }
         while (true) {
             val tickInput = JSONObject(readLine())
 
             if (tickInput.getString("type") == TurnType.END_GAME.value) {
-                //logger.debug { "END GAME!" }
                 break
             }
 
@@ -24,6 +23,8 @@ class Strategy {
             playersJson.keys().forEach {
                 players.add(Player.init(playersJson.getJSONObject(it), it))
             }
+
+            logger.debug { getMe(players) }
 
             System.out.printf("{\"command\": \"%s\"}\n", dummy(world, getMe(players)))
         }

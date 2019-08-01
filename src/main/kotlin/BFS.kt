@@ -42,7 +42,7 @@ class BFS {
             while (border.isNotEmpty()) {
                 val current = border.poll()
                 for (turn in turns) {
-                    val potentialCell = doTurn(current, turn)
+                    val potentialCell = Alg.doTurn(current, turn, 1)
                     if (potentialCell.first in (0 .. (right - left)) && potentialCell.second in (0 .. (top - bottom))) {
                         if (matrix[potentialCell.first][potentialCell.second] == 0) {
                             matrix[potentialCell.first][potentialCell.second] = 2
@@ -70,15 +70,6 @@ class BFS {
             }
 
             return result
-        }
-
-        private fun doTurn(cell: Cell, turn: Turn): Cell {
-            return when (turn) {
-                Turn.LEFT -> Cell(cell.first - 1, cell.second)
-                Turn.RIGHT -> Cell(cell.first + 1, cell.second)
-                Turn.TOP -> Cell(cell.first, cell.second + 1)
-                else -> Cell(cell.first, cell.second - 1)
-            }
         }
 
         private fun addIfNotMy(queue: Queue<Cell>, my: List<Cell>, cell: Cell, toPut: Cell) {

@@ -20,9 +20,11 @@ fun main() {
 //    println(Alg.getBound(me.territory))
 
 
-    val barriers = listOf(setOf(Pair(1,1), Pair(1,2), Pair(2,1), Pair(2,2), Pair(3,1), Pair(3,2), Pair(4,2)))
+//    val barriers = listOf(setOf(Pair(1,1), Pair(1,2), Pair(2,1), Pair(2,2), Pair(3,1), Pair(3,2), Pair(4,2)))
+    val barriers = listOf(setOf<Cell>())
 
-    val (path, cost) = aStarSearch(Cell(0,0), Cell(5,3), SquareGrid(30,30, barriers))
-
+    val (path, cost) = aStarSearch(Cell(9,14), Cell(30,29), SquareGrid(31,31, barriers))
+//
     println("Cost: $cost  Path: $path")
+
 }

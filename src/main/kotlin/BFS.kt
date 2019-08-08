@@ -5,8 +5,10 @@ import kotlin.math.min
 
 class BFS {
     companion object {
-        fun getFill(me: Player, world: World): List<Cell> {
-            val allMy = me.territoryNorm.plus(me.linesNorm)
+        fun getFill(territory: List<Cell>, lines: List<Cell>, world: World): List<Cell> {
+            val linesNorm = lines.map { Cell((it.first - 15) / 30, (it.second - 15) / 30) }
+            val territoryNorm = territory.map { Cell((it.first - 15) / 30, (it.second - 15) / 30) }
+            val allMy = territoryNorm.plus(linesNorm)
             val shift = 2
 
             val top = min(world.yCells - 1, (allMy.maxBy { it.second }?.second ?: 0) + shift)

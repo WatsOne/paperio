@@ -5,7 +5,8 @@ class Alg {
             val turns = Turn.values()
             territory.forEach {
                 for (turn in turns) {
-                    if (!territory.contains(doTurn(it, turn, 30))) {
+                    val potential = doTurn(it, turn, 30)
+                    if (potential.first in (0..930) && potential.second in (0..930) && !territory.contains(potential)) {
                         result.add(it)
                         return@forEach
                     }

@@ -1,18 +1,20 @@
-import mu.KotlinLogging
+//import mu.KotlinLogging
 import org.json.JSONObject
-import java.lang.RuntimeException
+import java.lang.IllegalArgumentException
+import java.util.*
+import kotlin.RuntimeException
 
-private val logger = KotlinLogging.logger {}
+//private val logger = KotlinLogging.logger {}
 class Strategy {
     fun run() {
 
         val world = World.init(JSONObject(readLine()).getJSONObject("params"))
-        logger.debug { "$world" }
+//        logger.debug { "$world" }
 
-        var goToRandom = false
-        var pathToRandom = mutableListOf<Cell>()
+        var pathToBound = mutableListOf<Cell>()
+        var pathToMove = mutableListOf<Cell>()
+        var state = State.INIT
         var lastPos = Cell(0,0)
-
 
         while (true) {
             val tickInput = JSONObject(readLine())
@@ -31,93 +33,154 @@ class Strategy {
             }
 
             val me = getMe(players)
-            val meNorm = Cell((me.pos.first - 15) / 30, (me.pos.second - 15) / 30)
 
-            if (pathToRandom.isEmpty()) {
-                goToRandom = !goToRandom
+            if (state == State.INIT) {
+                pathToBound = getNearestPath(me)
+                state = State.GO_TO_NEAREST_BOUND
+            }
 
-                var randomPointFound = false
-                var randomPoint = Cell(0,0)
+            if (state == State.GO_TO_NEAREST_BOUND) {
+                if (pathToBound.isEmpty()) {
+                    state = State.MAIN_MOVE
 
-                if (goToRandom) {
-                    while (!randomPointFound) {
-                        randomPoint = Cell((1..31).random() * 30 - 15, (1..31).random() * 30 - 15)
-                        if (!me.territoryNorm.contains(randomPoint)) {
-                            randomPointFound = true
-                        }
-                    }
+//                    val start = System.currentTimeMillis()
+                    val possiblePath = mutableListOf<Pair<List<Cell>, Int>>()
+                    doStep(0, me.direction, me.pos, listOf(), me, world, possiblePath)
+                    pathToMove = possiblePath.maxBy { it.second }?.first?.toMutableList() ?: throw RuntimeException("PZDC MAX")
+//                    logger.debug { "CC: ${System.currentTimeMillis() - start} ms" }
+
                 } else {
-                    randomPoint = Alg.getBound(me.territory).random()
+                    val nextCell = pathToBound[0]
+                    pathToBound.removeAt(0)
+                    System.out.printf("{\"command\": \"%s\"}\n", getDirection(me.posNorm, nextCell))
+                }
+            }
+
+            if (state == State.MAIN_MOVE) {
+                val nextCell = pathToMove[0]
+                pathToMove.removeAt(0)
+
+                if (pathToMove.isEmpty()) {
+                    state = State.INIT
                 }
 
-                logger.debug { "random point: $randomPoint" }
-                val barriers = listOf(me.linesNorm.toSet().plus(Cell((lastPos.first - 15) / 30, (lastPos.second - 15) / 30)))
-                val (path, cost) = aStarSearch(meNorm, Cell((randomPoint.first - 15) / 30, (randomPoint.second - 15) / 30), SquareGrid(31,31, barriers))
-                pathToRandom = path.toMutableList()
-
-
-                pathToRandom.removeAt(0)
-                val move = pathToRandom[0]
-                pathToRandom.removeAt(0)
-
-                logger.debug { "1 norm: $meNorm, move: $move toRand: $goToRandom me: ${me.pos}" }
-                logger.debug { "1 dir: ${getDirection(meNorm, move)}" }
-
-                lastPos = me.pos
-                System.out.printf("{\"command\": \"%s\"}\n", getDirection(meNorm, move))
-            } else {
-                val move = pathToRandom[0]
-                pathToRandom.removeAt(0)
-
-                logger.debug { "2 norm: $meNorm, move: $move toRand: $goToRandom me: ${me.pos}" }
-                logger.debug { "2 dir: ${getDirection(meNorm, move)}" }
-
-                lastPos = me.pos
-                System.out.printf("{\"command\": \"%s\"}\n", getDirection(meNorm, move))
+                System.out.printf("{\"command\": \"%s\"}\n", getDirectionMove(me.pos, nextCell))
             }
+
         }
     }
 
     private fun getDirection(me: Cell, target: Cell): String {
-        return if (target == Cell(me.first + 1, me.second)) {
-            "right"
-        } else if (target == Cell(me.first - 1, me.second)) {
-            "left"
-        } else if (target == Cell(me.first, me.second + 1)) {
-            "up"
-        } else if (target == Cell(me.first, me.second - 1)) {
-            "down"
-        } else {
-            throw RuntimeException("PZDC")
+        return when (target) {
+            Cell(me.first + 1, me.second) -> "right"
+            Cell(me.first - 1, me.second) -> "left"
+            Cell(me.first, me.second + 1) -> "up"
+            Cell(me.first, me.second - 1) -> "down"
+            else -> throw RuntimeException("PZDC")
+        }
+    }
+
+    private fun getDirectionMove(me: Cell, target: Cell): String {
+        return when (target) {
+            Cell(me.first + 30, me.second) -> "right"
+            Cell(me.first - 30, me.second) -> "left"
+            Cell(me.first, me.second + 30) -> "up"
+            Cell(me.first, me.second - 30) -> "down"
+            else -> throw RuntimeException("PZDC")
         }
     }
 
     private fun getMe(players: MutableList<Player>): Player =
         players.find { it.id == 0 } ?: throw RuntimeException("Me not found")
 
-    private fun dummy(world: World, me: Player): String {
-        val possibleTurns = mutableListOf<Triple<Int, Int, String>>()
+    private fun getNearestPath(me: Player): MutableList<Cell> {
+        val barriers = listOf(setOf(getPrevCell(me)))
+        val world = SquareGrid(31,31, barriers)
+        val bounds = Alg.getBound(me.territory).minus(me.pos)
+            .map { Cell((it.first - 15) / 30, (it.second - 15) / 30) }
+            .map { try {
+                aStarSearch(me.posNorm, it, world)
+            } catch (ex: IllegalArgumentException) {
+                Pair(listOf<Cell>(), 999999)
+            } }
+        val path = bounds.minBy { it.second }?.first?.toMutableList() ?: throw RuntimeException("Cannot find nearest path to bound")
+        path.removeAt(0)
+        return path
+    }
 
-        val up = Pair(me.pos.first, me.pos.second + world.width)
-        if (up.second < world.yCells * world.width && !me.lines.contains(up)) {
-            possibleTurns.add(Triple(up.first, up.second, "up"))
+    private fun getPrevCell(me: Player): Cell {
+        return when (me.direction) {
+            "right" -> Cell(me.posNorm.first - 1, me.posNorm.second)
+            "left" -> Cell(me.posNorm.first + 1, me.posNorm.second)
+            "up" -> Cell(me.posNorm.first, me.posNorm.second - 1)
+            else -> Cell(me.posNorm.first, me.posNorm.second + 1)
+        }
+    }
+
+    private fun getPrevCellMove(cell: Cell, direction: String): Cell {
+        return when (direction) {
+            "right" -> Cell(cell.first - 30, cell.second)
+            "left" -> Cell(cell.first + 30, cell.second)
+            "up" -> Cell(cell.first, cell.second - 30)
+            else -> Cell(cell.first, cell.second + 30)
+        }
+    }
+
+//    private fun getPath(me: Player): List<Cell> {
+//        val path = ArrayDeque<Cell>()
+//        val visitedCells = mutableListOf<Cell>()
+//
+//
+//
+//        var depth = 0
+//        while (!path.isEmpty()) {
+//            val step = path.pollFirst()
+//            depth++
+//            if (me.territory.contains(step)) {
+//                //stop
+//            } else {
+//
+//            }
+//        }
+//    }
+//
+//
+    private fun doStep(depth: Int, direction: String, pos: Cell, path: List<Cell>, me: Player, world: World, res: MutableList<Pair<List<Cell>, Int>>) {
+        val last = nearTerr(pos, me.territory)
+        if (last != null) {
+            val p = path.plus(last)
+//            logger.debug { "FOUND! d: $depth, path: $p, cos: ${}" }
+            res.add(Pair(p, p.size + BFS.getFill(me.territory, p, world).size))
+        }
+        if (depth < 10) {
+            getPossibleDirection(pos, direction, me.territory).forEach {
+                doStep(depth.inc(), it.second, it.first, path.plus(it.first), me, world, res)
+            }
+        }
+    }
+
+    private fun nearTerr(pos: Cell, terr: List<Cell>): Cell? {
+        for (turn in Turn.values()) {
+            val turnCell = Alg.doTurn(pos, turn, 30)
+            if (terr.contains(turnCell)) {
+                return turnCell
+            }
         }
 
-        val down = Pair(me.pos.first, me.pos.second - world.width)
-        if (down.second > 0 && !me.lines.contains(down)) {
-            possibleTurns.add(Triple(down.first, down.second, "down"))
+        return null
+    }
+
+    private fun getPossibleDirection(pos: Cell, direction: String, terr: List<Cell>): List<Pair<Cell, String>> {
+        val possible = mutableListOf<Pair<Cell, String>>()
+        for (turn in Turn.values()) {
+            val possibleCell = Alg.doTurn(pos, turn, 30)
+            if (possibleCell != getPrevCellMove(pos, direction) && possibleCell.first in (0..930) && possibleCell.second in (0..930)) {
+                if (!terr.contains(possibleCell)) {
+                    possible.add(Pair(possibleCell, turn.str))
+                }
+            }
         }
 
-        val left = Pair(me.pos.first - world.width, me.pos.second)
-        if (left.first > 0 && !me.lines.contains(left)) {
-            possibleTurns.add(Triple(left.first, left.second, "left"))
-        }
-
-        val right = Pair(me.pos.first + world.width, me.pos.second)
-        if (right.first < world.xCells * world.width && !me.lines.contains(right)) {
-            possibleTurns.add(Triple(right.first, right.second, "right"))
-        }
-
-        return possibleTurns.random().third
+        return possible
     }
 }

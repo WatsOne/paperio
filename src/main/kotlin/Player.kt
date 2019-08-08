@@ -27,6 +27,7 @@ class Player(
 
     val linesNorm = lines.map { Cell((it.first - 15) / 30, (it.second - 15) / 30) }
     val territoryNorm = territory.map { Cell((it.first - 15) / 30, (it.second - 15) / 30) }
+    val posNorm = Cell((pos.first - 15) / 30, (pos.second - 15) / 30)
 
     override fun toString(): String {
         return "Player(id=$id, score=$score, pos=$pos, lines=$lines, territory=$territory, direction='$direction')"

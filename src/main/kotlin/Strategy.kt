@@ -3,6 +3,8 @@ import org.json.JSONObject
 import java.lang.IllegalArgumentException
 import java.util.*
 import kotlin.RuntimeException
+import kotlin.math.max
+import kotlin.math.min
 
 //private val logger = KotlinLogging.logger {}
 class Strategy {
@@ -45,9 +47,10 @@ class Strategy {
 
 //                    val start = System.currentTimeMillis()
                     val possiblePath = mutableListOf<Pair<List<Cell>, Int>>()
-                    doStep(0, me.direction, me.pos, listOf(), me, world, possiblePath)
+                    val bbox = bbox(me.territory.plus(me.lines), 150)
+                    doStep(0, me.direction, me.pos, listOf(), me, world, possiblePath, bbox)
                     pathToMove = possiblePath.maxBy { it.second }?.first?.toMutableList() ?: throw RuntimeException("PZDC MAX")
-//                    logger.debug { "CC: ${System.currentTimeMillis() - start} ms" }
+//                    logger.debug { ">> $tick: ${System.currentTimeMillis() - start} ms" }
 
                 } else {
                     val nextCell = pathToBound[0]
@@ -145,16 +148,17 @@ class Strategy {
 //    }
 //
 //
-    private fun doStep(depth: Int, direction: String, pos: Cell, path: List<Cell>, me: Player, world: World, res: MutableList<Pair<List<Cell>, Int>>) {
+    private fun doStep(depth: Int, direction: String, pos: Cell, path: List<Cell>, me: Player,
+                       world: World, res: MutableList<Pair<List<Cell>, Int>>, bbox: Bbox) {
         val last = nearTerr(pos, me.territory)
         if (last != null) {
             val p = path.plus(last)
 //            logger.debug { "FOUND! d: $depth, path: $p, cos: ${}" }
             res.add(Pair(p, p.size + BFS.getFill(me.territory, p, world).size))
         }
-        if (depth < 10) {
-            getPossibleDirection(pos, direction, me.territory).forEach {
-                doStep(depth.inc(), it.second, it.first, path.plus(it.first), me, world, res)
+        if (depth < 13) {
+            getPossibleDirection(pos, direction, me.territory, path, bbox).forEach {
+                doStep(depth.inc(), it.second, it.first, path.plus(it.first), me, world, res, bbox)
             }
         }
     }
@@ -170,17 +174,27 @@ class Strategy {
         return null
     }
 
-    private fun getPossibleDirection(pos: Cell, direction: String, terr: List<Cell>): List<Pair<Cell, String>> {
+    private fun getPossibleDirection(pos: Cell, direction: String, terr: List<Cell>, currentPath: List<Cell>, bbox: Bbox): List<Pair<Cell, String>> {
         val possible = mutableListOf<Pair<Cell, String>>()
         for (turn in Turn.values()) {
             val possibleCell = Alg.doTurn(pos, turn, 30)
             if (possibleCell != getPrevCellMove(pos, direction) && possibleCell.first in (0..930) && possibleCell.second in (0..930)) {
-                if (!terr.contains(possibleCell)) {
-                    possible.add(Pair(possibleCell, turn.str))
+                if (!terr.contains(possibleCell) && !currentPath.contains(possibleCell)) {
+                    if (possibleCell.first in (bbox.left..bbox.right) && possibleCell.second in (bbox.bottom..bbox.top)) {
+                        possible.add(Pair(possibleCell, turn.str))
+                    }
                 }
             }
         }
 
         return possible
+    }
+
+    private fun bbox(allMy: List<Cell>, shift: Int): Bbox {
+        val top = min(930, (allMy.maxBy { it.second }?.second ?: 0) + shift)
+        val bottom = max(0, (allMy.minBy { it.second }?.second ?: 0) - shift)
+        val right = min(930, (allMy.maxBy { it.first }?.first ?: 0) + shift)
+        val left = max(0, (allMy.minBy { it.first }?.first ?: 0) - shift)
+        return Bbox(left, right, top, bottom)
     }
 }

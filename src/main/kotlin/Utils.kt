@@ -7,3 +7,5 @@ enum class State {
     GO_TO_NEAREST_BOUND,
     MAIN_MOVE
 }
+
+data class Bbox(val left: Int, val right: Int, val top: Int, val bottom: Int)

@@ -3,6 +3,7 @@ import org.json.JSONObject
 import java.lang.IllegalArgumentException
 import java.util.*
 import kotlin.RuntimeException
+import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 
@@ -16,6 +17,7 @@ class Strategy {
         var pathToBound = mutableListOf<Cell>()
         var pathToMove = mutableListOf<Cell>()
         var pathToRun = mutableListOf<Cell>()
+        var prevMinDistance = -1
         var state = State.INIT
 
         while (true) {
@@ -35,11 +37,12 @@ class Strategy {
             }
 
             val me = getMe(players)
-            val enemiesDirection = players.filter { it.id != 0 }.map { it.pos to it.direction }
+//            val enemiesDirection = players.filter { it.id != 0 }.map { it.pos to it.direction }
 
             if (state == State.INIT) {
                 pathToBound = getNearestPath(me)
                 state = State.GO_TO_NEAREST_BOUND
+                prevMinDistance = -1
             }
 
             if (state == State.GO_TO_NEAREST_BOUND) {
@@ -61,13 +64,31 @@ class Strategy {
             }
 
             if (state == State.MAIN_MOVE) {
-                val tickToBoom = if (me.lines.isEmpty()) null else tickToBoom(enemiesDirection, me, pathToMove.size)
-                if (tickToBoom != null) {
-                    pathToRun = getPathToRun(me, tickToBoom)
-                    if (pathToRun.isNotEmpty()) {
-                        state = State.RUN
+                var doRun = false
+//                val tickToBoom = if (me.lines.isEmpty()) null else tickToBoom(enemiesDirection, me, pathToMove.size)
+//                if (tickToBoom != null) {
+//                    pathToRun = getPathToRun(me, tickToBoom)
+//                    if (pathToRun.isNotEmpty()) {
+//                        state = State.RUN
+//                        doRun = true
+//                    }
+//                }
+                val nearestPlayer = getNearestPlayer(me, players)
+                if (nearestPlayer != null && nearestPlayer.second < 390) {
+                    val nearestDistance = getDistanceNearest2Lines(me, nearestPlayer.first)
+                    if (nearestDistance < prevMinDistance) {
+                        pathToRun = getPathToRun(me, 50)
+                        if (pathToRun.isNotEmpty()) {
+                            state = State.RUN
+                            doRun = true
+                        }
+                    } else {
+                        prevMinDistance = nearestDistance
                     }
-                } else {
+                }
+
+
+                if (!doRun) {
                     val nextCell = pathToMove[0]
                     pathToMove.removeAt(0)
 
@@ -240,12 +261,12 @@ class Strategy {
     private fun getPathToRun(me: Player, tickToBoom: Int): MutableList<Cell> {
         val barriers = listOf(me.linesNorm.plus(getPrevCell(me)).toSet())
         val world = SquareGrid(31,31, barriers)
-        val bounds = Alg.getBound(me.territory).map { Cell((it.first - 15) / 30, (it.second - 15) / 30) }
+        val bounds = getRunCandidates(me).map { Cell((it.first - 15) / 30, (it.second - 15) / 30) }
 
         for (cell in bounds) {
             try {
                 val (path, cost) = aStarSearch(me.posNorm, cell, world)
-                if (cost < tickToBoom) {
+                if (cost <= tickToBoom) {
                     val normPath = path.toMutableList()
                     normPath.removeAt(0)
                     return normPath
@@ -255,5 +276,21 @@ class Strategy {
             }
         }
         return mutableListOf()
+    }
+
+    private fun getRunCandidates(me: Player): List<Cell> {
+        return Alg.getBound(me.territory).map { it to manhattan(me.pos, it) }.sortedBy { it.second }.map { it.first }.take(5)
+    }
+
+    private fun manhattan(x: Cell, y: Cell): Int {
+        return abs(x.first - y.first) + abs(x.second - y.second)
+    }
+
+    private fun getNearestPlayer(me: Player, players: List<Player>): Pair<Player, Int>? {
+        return players.filter { it.id != 0 }.map { it to manhattan(me.pos, it.pos) }.minBy { it.second }
+    }
+
+    private fun getDistanceNearest2Lines(me: Player, enemy: Player): Int {
+        return me.lines.map { manhattan(it, enemy.pos) }.min() ?: -1
     }
 }

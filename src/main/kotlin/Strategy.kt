@@ -15,8 +15,8 @@ class Strategy {
 
         var pathToBound = mutableListOf<Cell>()
         var pathToMove = mutableListOf<Cell>()
+        var pathToRun = mutableListOf<Cell>()
         var state = State.INIT
-        var lastPos = Cell(0,0)
 
         while (true) {
             val tickInput = JSONObject(readLine())
@@ -35,6 +35,7 @@ class Strategy {
             }
 
             val me = getMe(players)
+            val enemiesDirection = players.filter { it.id != 0 }.map { it.pos to it.direction }
 
             if (state == State.INIT) {
                 pathToBound = getNearestPath(me)
@@ -60,16 +61,34 @@ class Strategy {
             }
 
             if (state == State.MAIN_MOVE) {
-                val nextCell = pathToMove[0]
-                pathToMove.removeAt(0)
+                val tickToBoom = if (me.lines.isEmpty()) null else tickToBoom(enemiesDirection, me, pathToMove.size)
+                if (tickToBoom != null) {
+                    pathToRun = getPathToRun(me, tickToBoom)
+                    if (pathToRun.isNotEmpty()) {
+                        state = State.RUN
+                    }
+                } else {
+                    val nextCell = pathToMove[0]
+                    pathToMove.removeAt(0)
 
-                if (pathToMove.isEmpty()) {
+                    if (pathToMove.isEmpty()) {
+                        state = State.INIT
+                    }
+
+                    System.out.printf("{\"command\": \"%s\"}\n", getDirectionMove(me.pos, nextCell))
+                }
+            }
+
+            if (state == State.RUN) {
+                val nextCell = pathToRun[0]
+                pathToRun.removeAt(0)
+
+                if (pathToRun.isEmpty()) {
                     state = State.INIT
                 }
 
-                System.out.printf("{\"command\": \"%s\"}\n", getDirectionMove(me.pos, nextCell))
+                System.out.printf("{\"command\": \"%s\"}\n", getDirection(me.posNorm, nextCell))
             }
-
         }
     }
 
@@ -156,7 +175,7 @@ class Strategy {
 //            logger.debug { "FOUND! d: $depth, path: $p, cos: ${}" }
             res.add(Pair(p, p.size + BFS.getFill(me.territory, p, world).size))
         }
-        if (depth < 13) {
+        if (depth < 11) {
             getPossibleDirection(pos, direction, me.territory, path, bbox).forEach {
                 doStep(depth.inc(), it.second, it.first, path.plus(it.first), me, world, res, bbox)
             }
@@ -196,5 +215,45 @@ class Strategy {
         val right = min(930, (allMy.maxBy { it.first }?.first ?: 0) + shift)
         val left = max(0, (allMy.minBy { it.first }?.first ?: 0) - shift)
         return Bbox(left, right, top, bottom)
+    }
+
+    private fun tickToBoom(enemiesDirection: List<Pair<Cell, String>>, me: Player, toEnd: Int): Int? {
+        val ticks = mutableListOf<Int>()
+        enemiesDirection.forEach { e ->
+            (1..toEnd).forEach {
+                val possibleCell = when (e.second) {
+                    "left" -> Cell(e.first.first - it*30, e.first.second)
+                    "right" -> Cell(e.first.first + it*30, e.first.second)
+                    "up" -> Cell(e.first.first, e.first.second + it*30)
+                    else -> Cell(e.first.first, e.first.second - it*30)
+                }
+
+                if (me.lines.contains(possibleCell)) {
+                    ticks.add(it)
+                }
+            }
+        }
+
+        return ticks.min()
+    }
+
+    private fun getPathToRun(me: Player, tickToBoom: Int): MutableList<Cell> {
+        val barriers = listOf(me.linesNorm.plus(getPrevCell(me)).toSet())
+        val world = SquareGrid(31,31, barriers)
+        val bounds = Alg.getBound(me.territory).map { Cell((it.first - 15) / 30, (it.second - 15) / 30) }
+
+        for (cell in bounds) {
+            try {
+                val (path, cost) = aStarSearch(me.posNorm, cell, world)
+                if (cost < tickToBoom) {
+                    val normPath = path.toMutableList()
+                    normPath.removeAt(0)
+                    return normPath
+                }
+            } catch (ex: IllegalArgumentException) {
+                //meh
+            }
+        }
+        return mutableListOf()
     }
 }

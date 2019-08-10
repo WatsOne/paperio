@@ -5,7 +5,8 @@ enum class Turn(val str: String) {
 enum class State {
     INIT,
     GO_TO_NEAREST_BOUND,
-    MAIN_MOVE
+    MAIN_MOVE,
+    RUN
 }
 
 data class Bbox(val left: Int, val right: Int, val top: Int, val bottom: Int)

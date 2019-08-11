@@ -43,12 +43,11 @@ class BFS {
             val turns = Turn.values()
             while (border.isNotEmpty()) {
                 val current = border.poll()
-                for (turn in turns) {
-                    val potentialCell = Alg.doTurn(current, turn, 1)
-                    if (potentialCell.first in (0 .. (right - left)) && potentialCell.second in (0 .. (top - bottom))) {
-                        if (matrix[potentialCell.first][potentialCell.second] == 0) {
-                            matrix[potentialCell.first][potentialCell.second] = 2
-                            border.add(potentialCell)
+                turns.map { Alg.doTurn(current, it, 1) }.plus(current).forEach {
+                    if (it.first in (0 .. (right - left)) && it.second in (0 .. (top - bottom))) {
+                        if (matrix[it.first][it.second] == 0) {
+                            matrix[it.first][it.second] = 2
+                            border.add(it)
                         }
                     }
                 }

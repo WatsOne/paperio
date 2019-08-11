@@ -20,8 +20,21 @@ class Strategy {
         var prevMinDistance = -1
         var state = State.INIT
 
+//        val test = mutableListOf("up", "up", "up", "up", "up", "up", "up", "up", "up", "up", "up", "up", "up", "up", "up", "up",
+//            "right", "right", "right", "right", "right", "right", "right", "right", "right", "right", "right", "right", "right", "right", "right", "right",
+//            "down", "down", "down", "down", "down", "down",
+//            "right", "right", "right", "right",
+//            "down", "down", "down", "down", "down", "down")
+
         while (true) {
             val tickInput = JSONObject(readLine())
+
+//            if (test.isNotEmpty()) {
+//                val doTest = test[0]
+//                test.removeAt(0)
+//                System.out.printf("{\"command\": \"%s\"}\n", doTest)
+//                continue
+//            }
 
             if (tickInput.getString("type") == TurnType.END_GAME.value) {
                 break
@@ -190,10 +203,10 @@ class Strategy {
 //
     private fun doStep(depth: Int, direction: String, pos: Cell, path: List<Cell>, me: Player,
                        world: World, res: MutableList<Pair<List<Cell>, Int>>, bbox: Bbox) {
-        val last = nearTerr(pos, me.territory)
-        if (last != null) {
+        val last = nearTerr(pos, me.territory, direction)
+        if (last != null && path.isNotEmpty()) {
             val p = path.plus(last)
-//            logger.debug { "FOUND! d: $depth, path: $p, cos: ${}" }
+//            logger.debug { "FOUND! d: $depth, path: $p, cost: ${p.size + BFS.getFill(me.territory, p, world).size}" }
             res.add(Pair(p, p.size + BFS.getFill(me.territory, p, world).size))
         }
         if (depth < 11) {
@@ -203,10 +216,10 @@ class Strategy {
         }
     }
 
-    private fun nearTerr(pos: Cell, terr: List<Cell>): Cell? {
+    private fun nearTerr(pos: Cell, terr: List<Cell>, direction: String): Cell? {
         for (turn in Turn.values()) {
             val turnCell = Alg.doTurn(pos, turn, 30)
-            if (terr.contains(turnCell)) {
+            if (terr.contains(turnCell) && turnCell != getPrevCellMove(pos, direction)) {
                 return turnCell
             }
         }
@@ -214,7 +227,7 @@ class Strategy {
         return null
     }
 
-    private fun getPossibleDirection(pos: Cell, direction: String, terr: List<Cell>, currentPath: List<Cell>, bbox: Bbox): List<Pair<Cell, String>> {
+    public fun getPossibleDirection(pos: Cell, direction: String, terr: List<Cell>, currentPath: List<Cell>, bbox: Bbox): List<Pair<Cell, String>> {
         val possible = mutableListOf<Pair<Cell, String>>()
         for (turn in Turn.values()) {
             val possibleCell = Alg.doTurn(pos, turn, 30)
@@ -230,7 +243,7 @@ class Strategy {
         return possible
     }
 
-    private fun bbox(allMy: List<Cell>, shift: Int): Bbox {
+    public fun bbox(allMy: List<Cell>, shift: Int): Bbox {
         val top = min(930, (allMy.maxBy { it.second }?.second ?: 0) + shift)
         val bottom = max(0, (allMy.minBy { it.second }?.second ?: 0) - shift)
         val right = min(930, (allMy.maxBy { it.first }?.first ?: 0) + shift)
@@ -279,7 +292,7 @@ class Strategy {
     }
 
     private fun getRunCandidates(me: Player): List<Cell> {
-        return Alg.getBound(me.territory).map { it to manhattan(me.pos, it) }.sortedBy { it.second }.map { it.first }.take(5)
+        return Alg.getBound(me.territory).map { it to manhattan(me.pos, it) }.sortedBy { it.second }.map { it.first }.take(10)
     }
 
     private fun manhattan(x: Cell, y: Cell): Int {

@@ -11,7 +11,10 @@ fun main() {
 //    val me = Player(1, 0, Cell(1,2), listOf(Cell(15, 45), Cell(15, 75), Cell(45, 75), Cell(75, 75), Cell(75, 45), Cell(75, 15), Cell(45, 15)),
 //        listOf(Cell(15, 15)), "d")
 
-//    println(BFS.getFill(me, world))
+    val me = Player(1, 0, Cell(1,2), listOf(Cell(15, 45), Cell(15, 75)),
+    listOf(Cell(45, 15), Cell(45, 45), Cell(45, 75), Cell(45, 105), Cell(45, 135), Cell(15, 135)), "d")
+//
+    println(BFS.getFill(me.territory, me.lines, world))
 
 
 //    val me = Player(1, 0, Cell(1,2), listOf(),
@@ -26,7 +29,11 @@ fun main() {
 //    val (path, cost) = aStarSearch(Cell(9,14), Cell(30,29), SquareGrid(31,31, barriers))
 //
 //    println("Cost: $cost  Path: $path")
-    test(0)
+//    test(0)
+
+//    val strategy = Strategy()
+//    val bbox = strategy.bbox(listOf(15 to 45, 45 to 45, 45 to 15), 150)
+//    println(strategy.getPossibleDirection((15 to 45), "down", listOf(15 to 45, 45 to 45, 45 to 15), listOf(), bbox))
 }
 
 private fun test(a: Int) {
